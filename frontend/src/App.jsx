@@ -29,7 +29,7 @@ import {
 } from '@mui/icons-material'
 import axios from 'axios'
 import ExcelJS from 'exceljs'
- 
+import './App.css';
 function AppContent() {
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -39,14 +39,14 @@ function AppContent() {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const { page, setPage, rowsPerPage } = usePagination()
+  const [editedData, setEditedData] = useState({});
 
-
- 
   const handleFileChange = (event) => {
     const selectedFile = event.target.files[0]
     setFile(selectedFile)
     setError(null)
   }
+
   const getPaginatedData = () => {
     if (!analysis || !analysis.data) return [];
     const startIndex = page * rowsPerPage;
@@ -59,24 +59,20 @@ function AppContent() {
       }));
   };
 
-
   const handleExport = async () => {
     try {
       console.log('Export started')
       const headers = analysis.columns
-      const rows = analysis.data
-     
+      const rows = analysis.data 
       const workbook = new ExcelJS.Workbook()
       const worksheet = workbook.addWorksheet('Data Analysis')
      
-      // Define columns with headers
       worksheet.columns = headers.map(header => ({
         header: header,
         key: header,
         width: 15
       }))
      
-      // Add data rows
       rows.forEach((row, rowIndex) => {
         const rowData = {}
         headers.forEach(header => {
@@ -84,7 +80,6 @@ function AppContent() {
         })
         worksheet.addRow(rowData)
        
-        // Apply cell styling
         headers.forEach((header, colIndex) => {
           const cell = worksheet.getCell(rowIndex + 2, colIndex + 1)
           const value = row[header]
@@ -96,7 +91,6 @@ function AppContent() {
           const isRegionalWithLocationMismatch = header === analysis.regional_column && analysis.location_mismatch?.includes(rowIndex)
           const isDuplicate = analysis.duplicate_rows.indices.includes(rowIndex)
          
-          // Add check for uppercase, excluding regional column and integers
           const isUpperCase = header !== analysis.regional_column && header !== analysis.location_column &&
                    typeof value === 'string' &&
                    value === value.toUpperCase() &&
@@ -111,7 +105,6 @@ function AppContent() {
                    value !== 'UKG' &&
                    value !== 'SAI360'
   
-          // Apply fill colors based on conditions
           if (isDuplicate) {
             cell.fill = {
               type: 'pattern',
@@ -139,16 +132,13 @@ function AppContent() {
           }
         })
       })
-           // Make header row bold
       worksheet.getRow(1).font = { bold: true }
      
-      // Generate buffer and create download
       const buffer = await workbook.xlsx.writeBuffer()
       const blob = new Blob([buffer], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       })
      
-      // Create and trigger download
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
@@ -156,7 +146,6 @@ function AppContent() {
       document.body.appendChild(link)
       link.click()
      
-      // Cleanup
       setTimeout(() => {
         document.body.removeChild(link)
         window.URL.revokeObjectURL(url)
@@ -168,8 +157,7 @@ function AppContent() {
       setError('Failed to export data. Please try again.')
     }
   } 
- 
- 
+  
   const handleUpload = async () => {
     if (!file) {
       setError('Please select a file first')
@@ -195,6 +183,33 @@ function AppContent() {
       setLoading(false)
     }
   }
+
+  const handleCellEdit = (params) => {
+    const { id, field, value } = params;
+    
+    const updatedAnalysisData = [...analysis.data];
+    
+    const rowIndex = analysis.data.findIndex(row => 
+      row.id === id || (analysis.page * analysis.rowsPerPage + id - 1) === id
+    );
+
+    if (rowIndex !== -1) {
+      updatedAnalysisData[rowIndex] = {
+        ...updatedAnalysisData[rowIndex],
+        [field]: value
+      };
+
+      setEditedData(prev => ({
+        ...prev,
+        [`${rowIndex}-${field}`]: value
+      }));
+
+      setAnalysis(prevAnalysis => ({
+        ...prevAnalysis,
+        data: updatedAnalysisData
+      }));
+    }
+  };
  
   const getGridColumns = () => {
     if (!analysis || !analysis.columns) return []
@@ -211,6 +226,7 @@ function AppContent() {
         maxWidth: 300,
         resizable: true,
         headerClassName: 'bold-header',
+        editable: true,
  
       renderCell: (params) => {
         const isMissing = analysis.missing_positions[column].includes(params.row.id - 1)
@@ -221,7 +237,6 @@ function AppContent() {
         const hasLocationMismatch = column === analysis.location_column && analysis.location_mismatch?.includes(params.row.id - 1)
         const value = params.value
        
-        // Add check for uppercase, excluding regional column
         const isUpperCase = column !== analysis.regional_column && column !== analysis.location_column &&
                    typeof value === 'string' &&
                    value === value.toUpperCase() &&
@@ -229,7 +244,7 @@ function AppContent() {
                    isNaN(value) &&
                    !value.match(/^\d{1,4}[-/\.]\d{1,2}[-/\.]\d{1,4}/) &&
                    !value.match(/^(0?[1-9]|1[0-2])[\/\-](0?[1-9]|[12]\d|3[01])[\/\-](19|20)\d{2}$/) &&
-                   !value.match(/^(19|20)\d{2}[\/\-](0?[1-9]|1[0-2])[\/\-](0?[1-9]|[12]\d|3[01])$/) && value !== 'EMEA' &&
+                   !value.match(/^(19|20)\d{2}[\/\-](0?[1-9]|1[0-2])[\/\-](0?[1-9]|[12]\d|3[01])$/) &&
                    value !== 'SAP' &&
                    value !== 'AWS' &&
                    value !== 'UKG' &&
@@ -334,19 +349,22 @@ function AppContent() {
       },
     }));
   };
- 
- 
-  // const getPaginatedData = () => {
-  //   if (!analysis || !analysis.data) return [];
-  //   const startIndex = page * rowsPerPage;
-  //   const endIndex = startIndex + rowsPerPage;
-  //   return analysis.data
-  //     .slice(startIndex, endIndex)
-  //     .map((row, index) => ({
-  //       id: startIndex + index + 1,
-  //       ...row
-  //     }));
-  // };
+
+  const handleSaveChanges = async () => {
+    try {
+      const response = await axios.post('http://localhost:5000/api/update', {
+        editedData: analysis.data,
+        originalEditedCells: editedData
+      });
+
+      if (response.data.success) {
+        setError('Changes saved successfully');
+        setEditedData({});
+      }
+    } catch (err) {
+      setError('Failed to save changes');
+    }
+  };
  
   return (
     <>
@@ -713,7 +731,7 @@ function AppContent() {
                           }}
                          
                         />
-                        
+
                       </Box>
                     )}
                   </Card>
