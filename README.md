@@ -7,7 +7,7 @@ A smart **data validation tool** built as an add-on feature for enterprise softw
 ## 🔍 Features
 
 - ✅ Accepts CSV and Excel files as input
-- ⚠️ Automatically detects data inconsistencies (e.g., missing values, invalid formats)
+- ⚠️ Automatically detects data inconsistencies (e.g., missing values, invalid formats, mismatches in the country - region mapping)
 - ✏️ Interactive panel to view and edit errors inline
 - 🔁 Seamless push of updated data to the main software system
 - 💡 Enhances data quality and reduces manual preprocessing effort
